@@ -2,8 +2,19 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+const envUrl = import.meta.env.VITE_SUPABASE_URL;
+const envKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+const SUPABASE_URL =
+  envUrl && String(envUrl).trim() !== "" ? envUrl : "http://127.0.0.1:54321";
+const SUPABASE_PUBLISHABLE_KEY =
+  envKey && String(envKey).trim() !== "" ? envKey : "dev-placeholder-anon-key";
+
+if (!envUrl || !envKey) {
+  console.warn(
+    "[Supabase] VITE_SUPABASE_URL and/or VITE_SUPABASE_PUBLISHABLE_KEY are missing; using placeholders. Add them to a .env file for auth and database features."
+  );
+}
 
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
