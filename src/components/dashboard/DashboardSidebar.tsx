@@ -30,7 +30,7 @@ export function DashboardSidebar() {
     <Sidebar collapsible="icon" className="border-r border-border">
       <SidebarHeader className="p-4">
         <Link to="/" className="flex items-center gap-2">
-          <img src={nexolLogo} alt="NexolPay" className="w-8 h-8 rounded-lg shrink-0" />
+          <img src={nexolLogo.src} alt="NexolPay" className="w-8 h-8 rounded-lg shrink-0" />
           {!collapsed && (
             <span className="font-display font-bold text-foreground">NexolPay</span>
           )}

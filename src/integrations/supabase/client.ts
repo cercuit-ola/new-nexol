@@ -2,8 +2,8 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
-const envUrl = import.meta.env.VITE_SUPABASE_URL;
-const envKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+const envUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const envKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 
 const SUPABASE_URL =
   envUrl && String(envUrl).trim() !== "" ? envUrl : "http://127.0.0.1:54321";
@@ -12,7 +12,7 @@ const SUPABASE_PUBLISHABLE_KEY =
 
 if (!envUrl || !envKey) {
   console.warn(
-    "[Supabase] VITE_SUPABASE_URL and/or VITE_SUPABASE_PUBLISHABLE_KEY are missing; using placeholders. Add them to a .env file for auth and database features."
+    "[Supabase] NEXT_PUBLIC_SUPABASE_URL and/or NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY are missing; using placeholders."
   );
 }
 
@@ -21,7 +21,7 @@ if (!envUrl || !envKey) {
 
 export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth: {
-    storage: localStorage,
+    storage: typeof window === "undefined" ? undefined : localStorage,
     persistSession: true,
     autoRefreshToken: true,
   }

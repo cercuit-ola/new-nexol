@@ -14,7 +14,7 @@ export default function LandingPage() {
     <div className="min-h-screen bg-mesh font-body text-ink">
       <header className="sticky top-0 z-50 border-b border-ink/5 bg-cream/75 backdrop-blur-xl">
         <div className="mx-auto flex h-20 max-w-[1280px] items-center justify-between px-6 lg:px-12">
-          <Link to="/" className="flex items-center gap-2.5"><img src={nexolLogo} alt="NexolPay" className="h-9 w-9 rounded-lg" /><span className="font-display text-2xl font-semibold tracking-tight">NexolPay</span></Link>
+          <Link to="/" className="flex items-center gap-2.5"><img src={nexolLogo.src} alt="NexolPay" className="h-9 w-9 rounded-lg" /><span className="font-display text-2xl font-semibold tracking-tight">NexolPay</span></Link>
           <nav className="hidden items-center gap-8 md:flex">
             <a href="#escrow" className="text-sm text-ink/65 hover:text-ink">Escrow</a><a href="#scheduler" className="text-sm text-ink/65 hover:text-ink">Payment scheduler</a><a href="#how" className="text-sm text-ink/65 hover:text-ink">How it works</a>
           </nav>
@@ -72,7 +72,7 @@ export default function LandingPage() {
         <section className="bg-cream px-6 pb-20 lg:px-12"><div className="mx-auto max-w-[1280px] overflow-hidden rounded-3xl bg-navy-deep px-8 py-16 text-center text-cream"><h2 className="font-display text-4xl font-semibold md:text-5xl">Make the payment terms certain.</h2><p className="mx-auto mt-4 max-w-xl text-cream/60">Create an escrow for deliverable-based work or schedule controlled payments over time.</p><Link to="/dashboard" className="mt-8 inline-flex items-center gap-2 rounded-full bg-gold px-8 py-4 font-semibold text-navy-deep">Open NexolPay <ArrowRight size={17} /></Link></div></section>
       </main>
 
-      <footer className="bg-navy-deep px-6 py-10 text-cream lg:px-12"><div className="mx-auto flex max-w-[1280px] flex-col items-center justify-between gap-5 border-t border-cream/10 pt-8 md:flex-row"><div className="flex items-center gap-2"><img src={nexolLogo} alt="NexolPay" className="h-8 w-8 rounded-lg" /><span className="font-display text-xl font-semibold">NexolPay</span></div><p className="text-xs text-cream/45">Escrow and scheduled payments on Base.</p><p className="text-xs text-cream/45">© {new Date().getFullYear()} NexolPay</p></div></footer>
+      <footer className="bg-navy-deep px-6 py-10 text-cream lg:px-12"><div className="mx-auto flex max-w-[1280px] flex-col items-center justify-between gap-5 border-t border-cream/10 pt-8 md:flex-row"><div className="flex items-center gap-2"><img src={nexolLogo.src} alt="NexolPay" className="h-8 w-8 rounded-lg" /><span className="font-display text-xl font-semibold">NexolPay</span></div><p className="text-xs text-cream/45">Escrow and scheduled payments on Base.</p><p className="text-xs text-cream/45">© {new Date().getFullYear()} NexolPay</p></div></footer>
     </div>
   );
 }
