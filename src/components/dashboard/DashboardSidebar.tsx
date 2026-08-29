@@ -1,4 +1,4 @@
-import { Calendar, Vault, Calculator, Gift, Home, ArrowLeft, Wallet } from "lucide-react";
+import { Home, ArrowLeft, ShieldCheck, CalendarClock } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { Link } from "react-router-dom";
 import nexolLogo from "@/assets/nexolpay-logo.png";
@@ -18,11 +18,8 @@ import {
 
 const menuItems = [
   { title: "Overview", url: "/dashboard", icon: Home },
-  { title: "Gift Card", url: "/dashboard/giftcard", icon: Gift },
-  { title: "Payment Scheduler", url: "/dashboard/scheduler", icon: Calendar },
-  { title: "Vault", url: "/dashboard/vault", icon: Vault },
-  { title: "Wallet", url: "/dashboard/wallet", icon: Wallet },
-  { title: "Yield Calculator", url: "/dashboard/calculator", icon: Calculator },
+  { title: "Escrows", url: "/dashboard/escrows", icon: ShieldCheck },
+  { title: "Payment Scheduler", url: "/dashboard/scheduler", icon: CalendarClock },
 ];
 
 export function DashboardSidebar() {

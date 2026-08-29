@@ -1,34 +1,14 @@
-import { useState, useEffect } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { DashboardSidebar } from "@/components/dashboard/DashboardSidebar";
-import DashboardOverview from "@/components/dashboard/DashboardOverview";
+import EscrowDashboard from "@/components/dashboard/EscrowDashboard";
 import PaymentScheduler from "@/components/dashboard/PaymentScheduler";
-import VaultFeature from "@/components/dashboard/VaultFeature";
-import YieldCalculator from "@/components/dashboard/YieldCalculator";
-import WalletDashboard from "@/components/dashboard/WalletDashboard";
-import GiftCardPage from "@/components/dashboard/GiftCardPage";
 import { useAuth } from "@/contexts/AuthContext";
-import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { LogOut } from "lucide-react";
-import { ConnectButton } from "@rainbow-me/rainbowkit";
 
 const Dashboard = () => {
   const { user, loading, signOut } = useAuth();
-  const [walletBalance, setWalletBalance] = useState<number>(0);
-
-  useEffect(() => {
-    if (!user) return;
-    supabase
-      .from("user_wallets")
-      .select("usdc_balance")
-      .eq("user_id", user.id)
-      .maybeSingle()
-      .then(({ data }) => {
-        if (data) setWalletBalance(Number(data.usdc_balance));
-      });
-  }, [user]);
 
   if (loading) {
     return (
@@ -53,14 +33,6 @@ const Dashboard = () => {
               {user.email}
             </span>
             <div className="ml-auto flex items-center gap-2">
-              <ConnectButton
-                chainStatus="icon"
-                accountStatus="avatar"
-                showBalance={false}
-              />
-              <span className="text-xs text-muted-foreground bg-card px-3 py-1.5 rounded-full border border-border">
-                {walletBalance.toFixed(2)} USDC
-              </span>
               <Button variant="ghost" size="icon" onClick={signOut} className="h-8 w-8">
                 <LogOut size={14} />
               </Button>
@@ -68,13 +40,10 @@ const Dashboard = () => {
           </header>
           <main className="flex-1 p-4 sm:p-6 lg:p-8 overflow-auto">
             <Routes>
-              <Route index element={<DashboardOverview />} />
-              <Route path="redeem" element={<GiftCardPage />} />
-              <Route path="giftcard" element={<GiftCardPage />} />
+              <Route index element={<EscrowDashboard />} />
+              <Route path="escrows" element={<EscrowDashboard />} />
               <Route path="scheduler" element={<PaymentScheduler />} />
-              <Route path="vault" element={<VaultFeature />} />
-              <Route path="wallet" element={<WalletDashboard />} />
-              <Route path="calculator" element={<YieldCalculator />} />
+              <Route path="*" element={<Navigate to="/dashboard" replace />} />
             </Routes>
           </main>
         </div>

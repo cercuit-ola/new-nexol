@@ -14,6 +14,101 @@ export type Database = {
   }
   public: {
     Tables: {
+      escrows: {
+        Row: {
+          amount: number
+          counterparty_email: string
+          created_at: string
+          creator_email: string
+          creator_id: string
+          deadline: string | null
+          description: string
+          funding_tx_hash: string | null
+          id: string
+          network: string
+          release_tx_hash: string | null
+          status: Database["public"]["Enums"]["escrow_status"]
+          title: string
+          token: string
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          counterparty_email: string
+          created_at?: string
+          creator_email: string
+          creator_id: string
+          deadline?: string | null
+          description: string
+          funding_tx_hash?: string | null
+          id?: string
+          network?: string
+          release_tx_hash?: string | null
+          status?: Database["public"]["Enums"]["escrow_status"]
+          title: string
+          token?: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          counterparty_email?: string
+          created_at?: string
+          creator_email?: string
+          creator_id?: string
+          deadline?: string | null
+          description?: string
+          funding_tx_hash?: string | null
+          id?: string
+          network?: string
+          release_tx_hash?: string | null
+          status?: Database["public"]["Enums"]["escrow_status"]
+          title?: string
+          token?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      payment_schedules: {
+        Row: {
+          created_at: string
+          id: string
+          installment_amount: number
+          installment_count: number
+          interval_days: number
+          name: string
+          next_release_at: string
+          recipient_email: string | null
+          released_count: number
+          starts_at: string
+          status: Database["public"]["Enums"]["payment_schedule_status"]
+          token: string
+          total_amount: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          installment_amount: number
+          installment_count: number
+          interval_days: number
+          name: string
+          next_release_at: string
+          recipient_email?: string | null
+          released_count?: number
+          starts_at: string
+          status?: Database["public"]["Enums"]["payment_schedule_status"]
+          token?: string
+          total_amount: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          status?: Database["public"]["Enums"]["payment_schedule_status"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
       gift_card_redemptions: {
         Row: {
           actioned_at: string | null
@@ -257,6 +352,8 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "user"
+      escrow_status: "draft" | "awaiting_funding" | "funded" | "work_submitted" | "released" | "disputed" | "cancelled"
+      payment_schedule_status: "scheduled" | "active" | "completed" | "cancelled"
     }
     CompositeTypes: {
       [_ in never]: never
