@@ -5,14 +5,12 @@ import type { Database } from './types';
 const envUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const envKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 
-const SUPABASE_URL =
-  envUrl && String(envUrl).trim() !== "" ? envUrl : "http://127.0.0.1:54321";
-const SUPABASE_PUBLISHABLE_KEY =
-  envKey && String(envKey).trim() !== "" ? envKey : "dev-placeholder-anon-key";
+const SUPABASE_URL = envUrl?.trim() || "https://ytvncpspjbdusdiabyel.supabase.co";
+const SUPABASE_PUBLISHABLE_KEY = envKey?.trim() || "sb_publishable_jw49Nh9BGLc4w22HMVGpOA_Un1UtRYg";
 
 if (!envUrl || !envKey) {
   console.warn(
-    "[Supabase] NEXT_PUBLIC_SUPABASE_URL and/or NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY are missing; using placeholders."
+    "[Supabase] Vercel environment variables are missing; using the configured public project credentials."
   );
 }
 
@@ -24,5 +22,6 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
     storage: typeof window === "undefined" ? undefined : localStorage,
     persistSession: true,
     autoRefreshToken: true,
+    detectSessionInUrl: true,
   }
 });
