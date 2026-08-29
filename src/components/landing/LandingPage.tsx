@@ -2,6 +2,8 @@ import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { ArrowRight, CalendarClock, Check, CheckCircle2, Clock3, Handshake, LockKeyhole, ShieldCheck } from "lucide-react";
 import nexolLogo from "@/assets/nexolpay-logo.png";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 
 const steps = [
   { number: "01", title: "Agree on the terms", copy: "Define the job, payment amount, deadline, and acceptance criteria before work begins." },
@@ -10,6 +12,14 @@ const steps = [
 ];
 
 export default function LandingPage() {
+  const navigate = useNavigate();
+  const { enterDemo } = useAuth();
+
+  const openDashboard = () => {
+    enterDemo("demo@nexolpay.app");
+    navigate("/dashboard");
+  };
+
   return (
     <div className="min-h-screen bg-mesh font-body text-ink">
       <header className="sticky top-0 z-50 border-b border-ink/5 bg-cream/75 backdrop-blur-xl">
@@ -18,7 +28,7 @@ export default function LandingPage() {
           <nav className="hidden items-center gap-8 md:flex">
             <a href="#escrow" className="text-sm text-ink/65 hover:text-ink">Escrow</a><a href="#scheduler" className="text-sm text-ink/65 hover:text-ink">Payment scheduler</a><a href="#how" className="text-sm text-ink/65 hover:text-ink">How it works</a>
           </nav>
-          <div className="flex items-center gap-3"><Link to="/auth" className="hidden text-sm text-ink/70 hover:text-ink sm:block">Sign in</Link><Link to="/auth?mode=signup" className="rounded-full bg-ink px-5 py-2.5 text-sm font-semibold text-cream hover:bg-ink/90">Sign up</Link></div>
+          <div className="flex items-center gap-3"><Link to="/auth" className="hidden text-sm text-ink/70 hover:text-ink sm:block">Sign in</Link><button type="button" onClick={openDashboard} className="rounded-full bg-ink px-5 py-2.5 text-sm font-semibold text-cream hover:bg-ink/90">Open Dashboard</button></div>
         </div>
       </header>
 
@@ -30,7 +40,7 @@ export default function LandingPage() {
               <h1 className="font-display text-5xl font-semibold leading-[1.03] tracking-tight md:text-6xl lg:text-7xl">Secure the deal.<br /><span className="relative"><span className="relative z-10">Control the payout.</span><span className="absolute inset-x-0 bottom-1 h-3 bg-gold/65" /></span></h1>
               <p className="mt-7 max-w-xl text-lg leading-relaxed text-ink/65">NexolPay protects payments between clients and professionals. Hold funds in escrow for completed work, or schedule controlled releases over time.</p>
               <div className="mt-9 flex flex-wrap gap-4">
-                <Link to="/auth?mode=signup" className="group inline-flex items-center gap-2 rounded-full bg-ink px-7 py-4 font-semibold text-cream shadow-lg shadow-ink/10">Create free account <ArrowRight size={17} className="transition-transform group-hover:translate-x-1" /></Link>
+                <button type="button" onClick={openDashboard} className="group inline-flex items-center gap-2 rounded-full bg-ink px-7 py-4 font-semibold text-cream shadow-lg shadow-ink/10">Open Dashboard <ArrowRight size={17} className="transition-transform group-hover:translate-x-1" /></button>
                 <Link to="/dashboard/scheduler" className="inline-flex items-center gap-2 rounded-full border border-ink/10 bg-white/60 px-7 py-4 font-semibold backdrop-blur hover:bg-white">Schedule a payment</Link>
               </div>
               <div className="mt-9 flex flex-wrap gap-x-6 gap-y-2 text-xs font-medium text-ink/55"><span className="flex items-center gap-1.5"><Check size={14} /> Clear terms</span><span className="flex items-center gap-1.5"><Check size={14} /> Transparent status</span><span className="flex items-center gap-1.5"><Check size={14} /> Base settlement</span></div>
