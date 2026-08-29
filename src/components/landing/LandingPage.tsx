@@ -22,6 +22,14 @@ export default function LandingPage() {
 
   return (
     <div className="min-h-screen bg-mesh font-body text-ink">
+      <button
+        type="button"
+        onClick={openDashboard}
+        className="fixed bottom-5 right-5 z-[100] inline-flex items-center gap-2 rounded-full bg-primary px-6 py-4 text-sm font-extrabold text-primary-foreground shadow-2xl shadow-black/30 transition-transform hover:scale-105"
+        aria-label="Open demo dashboard without signing in"
+      >
+        Open Dashboard <ArrowRight size={17} />
+      </button>
       <header className="sticky top-0 z-50 border-b border-ink/5 bg-cream/75 backdrop-blur-xl">
         <div className="mx-auto flex h-20 max-w-[1280px] items-center justify-between px-6 lg:px-12">
           <Link to="/" className="flex items-center gap-2.5"><img src={nexolLogo.src} alt="NexolPay" className="h-9 w-9 rounded-lg" /><span className="font-display text-2xl font-semibold tracking-tight">NexolPay</span></Link>
