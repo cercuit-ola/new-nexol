@@ -36,6 +36,12 @@ export default function PaymentScheduler() {
   const load = useCallback(async () => {
     if (!user) return;
     setLoading(true);
+    if (user.id === "demo-user") {
+      const saved = localStorage.getItem("nexol_demo_schedules");
+      setSchedules(saved ? JSON.parse(saved) : []);
+      setLoading(false);
+      return;
+    }
     const { data, error } = await supabase.from("payment_schedules").select("*").order("created_at", { ascending: false });
     if (error) toast.error("Could not load schedules", { description: error.message });
     setSchedules((data as Schedule[]) || []);
@@ -51,6 +57,30 @@ export default function PaymentScheduler() {
     const count = Number(form.count);
     const startsAt = new Date(`${form.startDate}T09:00:00`);
     setSaving(true);
+    if (user.id === "demo-user") {
+      const demoSchedule: Schedule = {
+        id: crypto.randomUUID(),
+        name: form.name.trim(),
+        recipient_email: form.recipientEmail.trim().toLowerCase() || null,
+        total_amount: total,
+        installment_amount: total / count,
+        installment_count: count,
+        interval_days: Number(form.intervalDays),
+        token: form.token,
+        starts_at: startsAt.toISOString(),
+        next_release_at: startsAt.toISOString(),
+        released_count: 0,
+        status: "scheduled",
+      };
+      const updated = [demoSchedule, ...schedules];
+      localStorage.setItem("nexol_demo_schedules", JSON.stringify(updated));
+      setSchedules(updated);
+      setSaving(false);
+      setForm(initialForm);
+      setOpen(false);
+      toast.success("Demo payment schedule created");
+      return;
+    }
     const { error } = await supabase.from("payment_schedules").insert({
       user_id: user.id,
       name: form.name.trim(),

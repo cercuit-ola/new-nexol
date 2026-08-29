@@ -61,6 +61,12 @@ export default function EscrowDashboard() {
   const loadEscrows = useCallback(async () => {
     if (!user) return;
     setLoading(true);
+    if (user.id === "demo-user") {
+      const saved = localStorage.getItem("nexol_demo_escrows");
+      setEscrows(saved ? JSON.parse(saved) : []);
+      setLoading(false);
+      return;
+    }
     const { data, error } = await supabase.from("escrows").select("*").order("created_at", { ascending: false });
     if (error) toast.error("Could not load escrows", { description: error.message });
     setEscrows((data as unknown as Escrow[]) || []);
@@ -80,6 +86,31 @@ export default function EscrowDashboard() {
       return;
     }
     setSaving(true);
+    if (user.id === "demo-user") {
+      const demoEscrow: Escrow = {
+        id: crypto.randomUUID(),
+        creator_id: user.id,
+        creator_email: user.email,
+        counterparty_email: form.counterpartyEmail.trim().toLowerCase(),
+        title: form.title.trim(),
+        description: form.description.trim(),
+        amount: Number(form.amount),
+        token: form.token,
+        network: "base",
+        deadline: form.deadline ? new Date(`${form.deadline}T23:59:59`).toISOString() : null,
+        status: "awaiting_funding",
+        funding_tx_hash: null,
+        created_at: new Date().toISOString(),
+      };
+      const updated = [demoEscrow, ...escrows];
+      localStorage.setItem("nexol_demo_escrows", JSON.stringify(updated));
+      setEscrows(updated);
+      setSaving(false);
+      setForm(initialForm);
+      setOpen(false);
+      toast.success("Demo escrow created");
+      return;
+    }
     const { error } = await supabase.from("escrows").insert({
       creator_id: user.id,
       creator_email: user.email,

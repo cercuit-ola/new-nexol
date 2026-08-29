@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { motion } from "framer-motion";
 import { ArrowLeft } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function Auth() {
   const [searchParams] = useSearchParams();
@@ -16,6 +17,7 @@ export default function Auth() {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { enterDemo } = useAuth();
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") || window.location.origin;
 
@@ -34,21 +36,9 @@ export default function Auth() {
           description: "Check your inbox for a password reset link.",
         });
         setIsForgot(false);
-      } else if (isLogin) {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
-        navigate("/dashboard");
       } else {
-        const { error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: { emailRedirectTo: `${siteUrl}/dashboard` },
-        });
-        if (error) throw error;
-        toast({
-          title: "Account created",
-          description: "Check your email to confirm your account.",
-        });
+        enterDemo(email);
+        navigate("/dashboard");
       }
     } catch (error: unknown) {
       toast({
@@ -88,7 +78,7 @@ export default function Auth() {
           <div className="space-y-2">
             <label className="text-xs text-muted-foreground">Email</label>
             <Input
-              type="email"
+              type="text"
               placeholder="you@example.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -105,7 +95,7 @@ export default function Auth() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                minLength={6}
+                minLength={1}
                 className="bg-accent border-border h-12"
               />
             </div>
