@@ -6,6 +6,7 @@ import PaymentScheduler from "@/components/dashboard/PaymentScheduler";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { LogOut } from "lucide-react";
+import { WalletButton } from "@/components/web3/WalletButton";
 
 const Dashboard = () => {
   const { user, loading, signOut } = useAuth();
@@ -33,6 +34,7 @@ const Dashboard = () => {
               {user.email}
             </span>
             <div className="ml-auto flex items-center gap-2">
+              <WalletButton />
               <Button variant="ghost" size="icon" onClick={signOut} className="h-8 w-8">
                 <LogOut size={14} />
               </Button>

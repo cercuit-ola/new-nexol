@@ -4,3 +4,6 @@ out
 .env
 .env.local
 .env.*.local
+tsconfig.tsbuildinfo
+hardhat/artifacts/
+hardhat/cache/

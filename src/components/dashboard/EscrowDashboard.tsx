@@ -1,218 +1,109 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { motion } from "framer-motion";
-import { AlertTriangle, ArrowRight, BriefcaseBusiness, Clock3, Plus, ShieldCheck } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
+import { useEffect, useState } from "react";
+import { AlertTriangle, ExternalLink, Plus, ShieldCheck } from "lucide-react";
+import { formatUnits, isAddress, keccak256, parseEventLogs, parseUnits, toBytes, type Address } from "viem";
+import { useAccount, usePublicClient, useReadContract, useWriteContract } from "wagmi";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { erc20Abi, escrowAbi } from "@/lib/contracts";
+import { configuredTokens, escrowAddress, explorerUrl, targetChain, tokenConfig, type TokenSymbol } from "@/lib/web3";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 
-type EscrowStatus = "draft" | "awaiting_funding" | "funded" | "work_submitted" | "released" | "disputed" | "cancelled";
-
-interface Escrow {
-  id: string;
-  creator_id: string;
-  creator_email: string;
-  counterparty_email: string;
-  title: string;
-  description: string;
-  amount: number;
-  token: "USDC" | "USDT";
-  network: "base" | "base-sepolia";
-  deadline: string | null;
-  status: EscrowStatus;
-  funding_tx_hash: string | null;
-  created_at: string;
-}
-
-const statusLabel: Record<EscrowStatus, string> = {
-  draft: "Draft",
-  awaiting_funding: "Awaiting funding",
-  funded: "Funded",
-  work_submitted: "Work submitted",
-  released: "Released",
-  disputed: "Disputed",
-  cancelled: "Cancelled",
-};
-
-const statusStyle: Record<EscrowStatus, string> = {
-  draft: "bg-white/5 text-muted-foreground",
-  awaiting_funding: "bg-amber-500/10 text-amber-300",
-  funded: "bg-blue-500/10 text-blue-300",
-  work_submitted: "bg-violet-500/10 text-violet-300",
-  released: "bg-primary/10 text-primary",
-  disputed: "bg-destructive/10 text-destructive",
-  cancelled: "bg-white/5 text-muted-foreground",
-};
-
-const initialForm = { title: "", counterpartyEmail: "", description: "", amount: "", token: "USDC" as "USDC" | "USDT", deadline: "" };
+const statuses = ["Unknown", "Funded", "Work submitted", "Released", "Refunded", "Disputed", "Resolved"];
+const initialForm = { title: "", payee: "", description: "", amount: "", token: "USDC" as TokenSymbol, deadline: "" };
 
 export default function EscrowDashboard() {
+  const { address, chainId, isConnected } = useAccount();
   const { user } = useAuth();
-  const [escrows, setEscrows] = useState<Escrow[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const client = usePublicClient({ chainId: targetChain.id });
+  const { writeContractAsync } = useWriteContract();
   const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState<string | null>(null);
   const [form, setForm] = useState(initialForm);
+  const ready = Boolean(address && escrowAddress && chainId === targetChain.id);
+  const idsQuery = useReadContract({ address: escrowAddress, abi: escrowAbi, functionName: "getUserEscrowIds", args: address ? [address] : undefined, chainId: targetChain.id, query: { enabled: ready } });
+  const ids = (idsQuery.data || []) as readonly bigint[];
+  type EscrowValue = readonly [Address, Address, Address, bigint, bigint, number, `0x${string}`];
+  const [rows, setRows] = useState<{id:bigint;value:EscrowValue}[]>([]);
+  useEffect(() => {
+    let active = true;
+    if (!client || !escrowAddress || !ready) { setRows([]); return; }
+    Promise.all(ids.map(async id => ({ id, value: await client.readContract({address:escrowAddress,abi:escrowAbi,functionName:"escrows",args:[id]}) as EscrowValue }))).then(data => { if(active)setRows(data); }).catch(error=>toast.error("Could not read escrow records",{description:error.message}));
+    return () => { active=false; };
+  }, [client, ready, idsQuery.data]);
 
-  const loadEscrows = useCallback(async () => {
-    if (!user) return;
-    setLoading(true);
-    if (user.id === "demo-user") {
-      const saved = localStorage.getItem("nexol_demo_escrows");
-      setEscrows(saved ? JSON.parse(saved) : []);
-      setLoading(false);
-      return;
-    }
-    const { data, error } = await supabase.from("escrows").select("*").order("created_at", { ascending: false });
-    if (error) toast.error("Could not load escrows", { description: error.message });
-    setEscrows((data as unknown as Escrow[]) || []);
-    setLoading(false);
-  }, [user]);
-
-  useEffect(() => { loadEscrows(); }, [loadEscrows]);
-
-  const activeValue = useMemo(() => escrows.filter((e) => ["funded", "work_submitted"].includes(e.status)).reduce((sum, e) => sum + Number(e.amount), 0), [escrows]);
-  const openCount = escrows.filter((e) => !["released", "cancelled"].includes(e.status)).length;
-
-  async function createEscrow(event: React.FormEvent) {
-    event.preventDefault();
-    if (!user?.email) return;
-    if (form.counterpartyEmail.toLowerCase() === user.email.toLowerCase()) {
-      toast.error("The counterparty must be someone else.");
-      return;
-    }
-    setSaving(true);
-    if (user.id === "demo-user") {
-      const demoEscrow: Escrow = {
-        id: crypto.randomUUID(),
-        creator_id: user.id,
-        creator_email: user.email,
-        counterparty_email: form.counterpartyEmail.trim().toLowerCase(),
-        title: form.title.trim(),
-        description: form.description.trim(),
-        amount: Number(form.amount),
-        token: form.token,
-        network: "base",
-        deadline: form.deadline ? new Date(`${form.deadline}T23:59:59`).toISOString() : null,
-        status: "awaiting_funding",
-        funding_tx_hash: null,
-        created_at: new Date().toISOString(),
-      };
-      const updated = [demoEscrow, ...escrows];
-      localStorage.setItem("nexol_demo_escrows", JSON.stringify(updated));
-      setEscrows(updated);
-      setSaving(false);
-      setForm(initialForm);
-      setOpen(false);
-      toast.success("Demo escrow created");
-      return;
-    }
-    const { error } = await supabase.from("escrows").insert({
-      creator_id: user.id,
-      creator_email: user.email,
-      counterparty_email: form.counterpartyEmail.trim().toLowerCase(),
-      title: form.title.trim(),
-      description: form.description.trim(),
-      amount: Number(form.amount),
-      token: form.token,
-      network: "base",
-      deadline: form.deadline ? new Date(`${form.deadline}T23:59:59`).toISOString() : null,
-      status: "awaiting_funding",
-    });
-    setSaving(false);
-    if (error) {
-      toast.error("Could not create escrow", { description: error.message });
-      return;
-    }
-    toast.success("Escrow agreement created");
-    setForm(initialForm);
-    setOpen(false);
-    loadEscrows();
+  async function confirm(hash: `0x${string}`, message: string) {
+    if (!client) throw new Error("Base RPC client is unavailable");
+    toast.info("Transaction submitted", { description: "Waiting for network confirmation…" });
+    const receipt = await client.waitForTransactionReceipt({ hash });
+    if (receipt.status !== "success") throw new Error("Transaction reverted");
+    toast.success(message, { action: { label: "View", onClick: () => window.open(`${explorerUrl}/tx/${hash}`, "_blank") } });
+    await idsQuery.refetch(); return receipt;
   }
 
-  return (
-    <div className="space-y-7">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Escrow workspace</p>
-          <h1 className="mt-2 font-display text-3xl font-bold text-foreground">Your agreements</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Create clear terms, secure payment, and release funds when the work is approved.</p>
-        </div>
-        <Button onClick={() => setOpen(true)} className="gap-2 rounded-xl"><Plus size={16} /> New escrow</Button>
-      </div>
+  async function create(event: React.FormEvent) {
+    event.preventDefault();
+    if (!address || !escrowAddress || !client) return toast.error("Connect a wallet and configure the escrow contract first.");
+    if (!isAddress(form.payee) || form.payee.toLowerCase() === address.toLowerCase()) return toast.error("Enter a different, valid recipient wallet address.");
+    const token = tokenConfig[form.token];
+    if (!token.address) return toast.error(`${form.token} is not configured on ${targetChain.name}.`);
+    try {
+      setBusy("create");
+      const amount = parseUnits(form.amount, token.decimals);
+      const allowance = await client.readContract({ address: token.address, abi: erc20Abi, functionName: "allowance", args: [address, escrowAddress] });
+      if (allowance < amount) {
+        const approval = await writeContractAsync({ address: token.address, abi: erc20Abi, functionName: "approve", args: [escrowAddress, amount], chainId: targetChain.id } as never);
+        await confirm(approval, `${form.token} spending approved`);
+      }
+      const metadata = JSON.stringify({ title: form.title.trim(), description: form.description.trim() });
+      const metadataHash = keccak256(toBytes(metadata));
+      const deadline = form.deadline ? BigInt(Math.floor(new Date(`${form.deadline}T23:59:59`).getTime() / 1000)) : BigInt(0);
+      const hash = await writeContractAsync({ address: escrowAddress, abi: escrowAbi, functionName: "createEscrow", args: [form.payee as Address, token.address, amount, deadline, metadataHash], chainId: targetChain.id } as never);
+      const receipt = await confirm(hash, "Escrow funded on-chain");
+      localStorage.setItem(`nexol:escrow:${metadataHash}`, metadata);
+      const eventLog = parseEventLogs({abi:escrowAbi,eventName:"EscrowFunded",logs:receipt.logs})[0];
+      if (user && user.id !== "demo-user" && user.email) await supabase.from("escrows").insert({creator_id:user.id,creator_email:user.email,counterparty_email:`${form.payee.toLowerCase()}@wallet.local`,title:form.title.trim(),description:form.description.trim(),amount:Number(form.amount),token:form.token,network:targetChain.id===8453?"base":"base-sepolia",deadline:form.deadline?new Date(`${form.deadline}T23:59:59`).toISOString():null,status:"funded",funding_tx_hash:hash,payer_wallet:address,payee_wallet:form.payee.toLowerCase(),chain_id:targetChain.id,contract_address:escrowAddress,contract_escrow_id:Number(eventLog?.args.escrowId),metadata_hash:metadataHash} as never);
+      setForm(initialForm); setOpen(false);
+    } catch (error) { toast.error("Escrow transaction failed", { description: error instanceof Error ? error.message : "Wallet rejected or RPC failed" }); }
+    finally { setBusy(null); }
+  }
 
-      <div className="grid gap-4 sm:grid-cols-3">
-        <Metric icon={ShieldCheck} label="Active secured value" value={`$${activeValue.toLocaleString(undefined, { maximumFractionDigits: 2 })}`} />
-        <Metric icon={BriefcaseBusiness} label="Open agreements" value={String(openCount)} />
-        <Metric icon={Clock3} label="Awaiting funding" value={String(escrows.filter((e) => e.status === "awaiting_funding").length)} />
-      </div>
+  async function action(id: bigint, fn: "submitWork" | "release" | "refund" | "raiseDispute") {
+    if (!escrowAddress) return;
+    try {
+      setBusy(`${fn}-${id}`);
+      const args = fn === "submitWork" || fn === "raiseDispute" ? [id, keccak256(toBytes(`${fn}:${Date.now()}`))] : [id];
+      const hash = await writeContractAsync({ address: escrowAddress, abi: escrowAbi, functionName: fn, args, chainId: targetChain.id } as never);
+      await confirm(hash, fn === "release" ? "Funds released" : fn === "refund" ? "Refund confirmed" : fn === "submitWork" ? "Work submitted" : "Dispute opened");
+    } catch (error) { toast.error("Transaction failed", { description: error instanceof Error ? error.message : "Unknown error" }); }
+    finally { setBusy(null); }
+  }
 
-      <div className="rounded-2xl border border-border bg-card overflow-hidden">
-        <div className="border-b border-border p-5"><h2 className="font-display text-xl font-semibold">Escrows</h2></div>
-        {loading ? (
-          <div className="p-12 text-center text-sm text-muted-foreground">Loading agreements…</div>
-        ) : escrows.length === 0 ? (
-          <div className="p-12 text-center">
-            <ShieldCheck className="mx-auto mb-4 text-primary" size={42} />
-            <h3 className="font-display text-xl font-semibold">No escrows yet</h3>
-            <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">Create your first agreement. No funds will be represented as secured until an on-chain funding transaction is confirmed.</p>
-            <Button onClick={() => setOpen(true)} className="mt-5 gap-2"><Plus size={15} /> Create escrow</Button>
-          </div>
-        ) : (
-          <div className="divide-y divide-border">
-            {escrows.map((escrow, index) => (
-              <motion.div key={escrow.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.04 }} className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center">
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="truncate font-semibold text-foreground">{escrow.title}</h3>
-                    <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${statusStyle[escrow.status]}`}>{statusLabel[escrow.status]}</span>
-                  </div>
-                  <p className="mt-1 truncate text-xs text-muted-foreground">With {escrow.creator_id === user?.id ? escrow.counterparty_email : escrow.creator_email}</p>
-                </div>
-                <div className="sm:text-right">
-                  <p className="font-display text-xl font-bold">{Number(escrow.amount).toLocaleString()} {escrow.token}</p>
-                  <p className="text-xs text-muted-foreground">{escrow.deadline ? `Due ${new Date(escrow.deadline).toLocaleDateString()}` : "No deadline"}</p>
-                </div>
-                <Button variant="ghost" size="icon" disabled title="Agreement actions will unlock after on-chain escrow is configured"><ArrowRight size={16} /></Button>
-              </motion.div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      <div className="flex gap-3 rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 text-sm text-amber-100/80">
-        <AlertTriangle className="mt-0.5 shrink-0 text-amber-300" size={17} />
-        <p>Agreement creation is live. Funding and release controls remain disabled until the escrow contract is deployed and verified on Base.</p>
-      </div>
-
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader><DialogTitle>Create an escrow</DialogTitle><DialogDescription>Define the agreement before either party begins work.</DialogDescription></DialogHeader>
-          <form onSubmit={createEscrow} className="space-y-4">
-            <Field label="Agreement title"><Input required minLength={3} maxLength={120} value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Website redesign" /></Field>
-            <Field label="Counterparty email"><Input required type="email" value={form.counterpartyEmail} onChange={(e) => setForm({ ...form, counterpartyEmail: e.target.value })} placeholder="client@example.com" /></Field>
-            <Field label="Scope and acceptance criteria"><Textarea required minLength={10} maxLength={2000} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Describe the deliverables and what counts as accepted…" rows={4} /></Field>
-            <div className="grid grid-cols-2 gap-4">
-              <Field label="Amount"><Input required type="number" min="0.01" step="0.01" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} placeholder="1,000" /></Field>
-              <Field label="Currency"><select value={form.token} onChange={(e) => setForm({ ...form, token: e.target.value as "USDC" | "USDT" })} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"><option>USDC</option><option>USDT</option></select></Field>
-            </div>
-            <Field label="Deadline (optional)"><Input type="date" value={form.deadline} onChange={(e) => setForm({ ...form, deadline: e.target.value })} /></Field>
-            <div className="flex justify-end gap-3 pt-2"><Button type="button" variant="ghost" onClick={() => setOpen(false)}>Cancel</Button><Button disabled={saving}>{saving ? "Creating…" : "Create agreement"}</Button></div>
-          </form>
-        </DialogContent>
-      </Dialog>
+  return <div className="space-y-7">
+    <div className="flex flex-wrap items-center justify-between gap-4"><div><p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">On-chain escrow</p><h1 className="mt-2 font-display text-3xl font-bold">Your agreements</h1><p className="mt-1 text-sm text-muted-foreground">Tokens are held by the contract until release, refund, or dispute resolution.</p></div><Button onClick={() => setOpen(true)} disabled={!ready} className="gap-2"><Plus size={16}/> New escrow</Button></div>
+    {!isConnected && <Notice>Connect your wallet above to view and fund agreements.</Notice>}
+    {isConnected && chainId !== targetChain.id && <Notice>Switch your wallet to {targetChain.name}.</Notice>}
+    {!escrowAddress && <Notice>The escrow contract is not deployed/configured yet. Set NEXT_PUBLIC_ESCROW_CONTRACT_ADDRESS after deployment.</Notice>}
+    <div className="rounded-2xl border border-border bg-card overflow-hidden"><div className="border-b border-border p-5"><h2 className="font-display text-xl font-semibold">Blockchain agreements</h2></div>
+      {ready && idsQuery.isLoading ? <Empty text="Reading Base…"/> : rows.length === 0 ? <Empty text={ready ? "No funded escrows found for this wallet." : "Connect to the configured network to load escrows."}/> : <div className="divide-y divide-border">{rows.map(({ id, value }) => {
+        const [payer, payee, tokenAddress, amount, deadline, status, metadataHash] = value!;
+        const token = configuredTokens.find(([, config]) => config.address?.toLowerCase() === tokenAddress.toLowerCase());
+        const metadata = typeof window !== "undefined" ? localStorage.getItem(`nexol:escrow:${metadataHash}`) : null;
+        const title = metadata ? (JSON.parse(metadata).title || `Escrow #${id}`) : `Escrow #${id}`;
+        const mine = address?.toLowerCase(); const isPayer = payer.toLowerCase() === mine; const isPayee = payee.toLowerCase() === mine;
+        return <div key={id.toString()} className="p-5 space-y-4"><div className="flex flex-wrap items-start justify-between gap-3"><div><h3 className="font-semibold">{title}</h3><p className="mt-1 text-xs text-muted-foreground">{isPayer ? `Payee ${payee.slice(0,8)}…${payee.slice(-4)}` : `Payer ${payer.slice(0,8)}…${payer.slice(-4)}`}</p></div><div className="text-right"><p className="font-display text-xl font-bold">{formatUnits(amount, token?.[1].decimals || 6)} {token?.[0] || "TOKEN"}</p><p className="text-xs text-primary">{statuses[status]}</p></div></div>
+          {deadline > BigInt(0) && <p className="text-xs text-muted-foreground">Deadline: {new Date(Number(deadline) * 1000).toLocaleString()}</p>}
+          <div className="flex flex-wrap gap-2">{isPayee && status === 1 && <Button size="sm" onClick={() => action(id,"submitWork")} disabled={!!busy}>Submit work</Button>}{isPayer && (status === 1 || status === 2) && <Button size="sm" onClick={() => action(id,"release")} disabled={!!busy}>Approve & release</Button>}{isPayee && (status === 1 || status === 2) && <Button size="sm" variant="outline" onClick={() => action(id,"refund")} disabled={!!busy}>Refund payer</Button>}{(isPayer || isPayee) && (status === 1 || status === 2) && <Button size="sm" variant="destructive" onClick={() => action(id,"raiseDispute")} disabled={!!busy}>Dispute</Button>}<a href={`${explorerUrl}/address/${escrowAddress}`} target="_blank" rel="noreferrer"><Button size="sm" variant="ghost"><ExternalLink size={13} className="mr-1"/>Contract</Button></a></div>
+        </div>})}</div>}
     </div>
-  );
+    <Dialog open={open} onOpenChange={setOpen}><DialogContent><DialogHeader><DialogTitle>Fund an escrow</DialogTitle><DialogDescription>Approval and funding are real wallet transactions on {targetChain.name}.</DialogDescription></DialogHeader><form onSubmit={create} className="space-y-4"><Field label="Agreement title"><Input required value={form.title} onChange={e=>setForm({...form,title:e.target.value})}/></Field><Field label="Payee wallet"><Input required value={form.payee} onChange={e=>setForm({...form,payee:e.target.value})} placeholder="0x…"/></Field><Field label="Scope and acceptance criteria"><Textarea required minLength={10} value={form.description} onChange={e=>setForm({...form,description:e.target.value})}/></Field><div className="grid grid-cols-2 gap-3"><Field label="Amount"><Input required type="number" min="0.000001" step="0.000001" value={form.amount} onChange={e=>setForm({...form,amount:e.target.value})}/></Field><Field label="Token"><select className="h-10 w-full rounded-md border border-input bg-background px-3" value={form.token} onChange={e=>setForm({...form,token:e.target.value as TokenSymbol})}>{configuredTokens.map(([symbol])=><option key={symbol}>{symbol}</option>)}</select></Field></div><Field label="Deadline (optional)"><Input type="date" value={form.deadline} onChange={e=>setForm({...form,deadline:e.target.value})}/></Field><Button className="w-full" disabled={!!busy}>{busy ? "Confirm in wallet…" : "Approve token & fund escrow"}</Button></form></DialogContent></Dialog>
+  </div>;
 }
 
-function Metric({ icon: Icon, label, value }: { icon: typeof ShieldCheck; label: string; value: string }) {
-  return <div className="rounded-2xl border border-border bg-card p-5"><div className="flex items-center justify-between"><p className="text-xs text-muted-foreground">{label}</p><Icon size={16} className="text-primary" /></div><p className="mt-2 font-display text-2xl font-bold">{value}</p></div>;
-}
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return <div className="space-y-2"><Label>{label}</Label>{children}</div>;
-}
+function Notice({children}:{children:React.ReactNode}) { return <div className="flex gap-3 rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 text-sm text-amber-100/80"><AlertTriangle size={17} className="shrink-0 text-amber-300"/>{children}</div> }
+function Empty({text}:{text:string}) { return <div className="p-12 text-center"><ShieldCheck size={38} className="mx-auto mb-3 text-primary"/><p className="text-sm text-muted-foreground">{text}</p></div> }
+function Field({label,children}:{label:string;children:React.ReactNode}) { return <div className="space-y-2"><Label>{label}</Label>{children}</div> }
