@@ -19,10 +19,6 @@ const Dashboard = () => {
     );
   }
 
-  if (!user) {
-    return <Navigate to="/auth" replace />;
-  }
-
   return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full bg-background">
@@ -31,7 +27,7 @@ const Dashboard = () => {
           <header className="h-14 flex items-center border-b border-border px-4 shrink-0 gap-2">
             <SidebarTrigger className="mr-2" />
             <span className="text-xs text-muted-foreground truncate max-w-[140px] hidden sm:inline">
-              {user.email}
+              {user?.email ?? "Demo workspace"}
             </span>
             <div className="ml-auto flex items-center gap-2">
               <WalletButton />
